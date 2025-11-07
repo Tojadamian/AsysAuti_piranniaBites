@@ -94,3 +94,37 @@ Opis testów:
 - Możemy dodać testy integracyjne z rzeczywistymi małymi plikami danych, lub rozbudować walidację parametrów `params` (np. dopasowanie fuzzy/regex).
 
 ---
+
+## Szybki start (dla laika)
+
+Jeśli nie jesteś programistą i chcesz tylko szybko zobaczyć co robi API, wykonaj te kroki (PowerShell):
+
+1. Otwórz folder projektu w Eksploratorze i uruchom PowerShell w tym folderze.
+2. Zainstaluj zależności (robi się to raz):
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+3. Uruchom serwer (po tej komendzie zobaczysz logi i adres http://127.0.0.1:5000):
+
+```powershell
+# jeśli chcesz pozwolić na odczyt pickli w tej sesji:
+$env:ALLOW_UNPICKLE = '1'
+python .\app.py
+```
+
+4. Otwórz przeglądarkę i wklej adresy (przykłady):
+
+- Health: http://127.0.0.1:5000/ — powinna pojawić się wiadomość "WESAD Backend API działa".
+- Lista plików: http://127.0.0.1:5000/data_dir — zobaczysz katalog danych i pliki.
+- Lista uczestników: http://127.0.0.1:5000/participants?allow_unpickle=1 — pokaże wykryte osoby (jeśli wyraziłeś zgodę na odczyt pickli).
+- Szczegóły uczestnika: http://127.0.0.1:5000/participant/2?allow_unpickle=1 — zamień "2" na numer uczestnika.
+
+5. Jeśli chcesz pobrać tylko konkretny parametr (np. TEMP):
+
+http://127.0.0.1:5000/participant/2?allow_unpickle=1&params=TEMP:100,EDA
+
+To zwróci (jeśli istnieje) TEMP z 100 próbkami i EDA z domyślną liczbą próbek.
+
+Jeśli coś nie działa, napisz mi co widzisz w terminalu (błędy) lub wklej tu wynik z przeglądarki — pomogę dalej.
