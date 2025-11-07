@@ -36,19 +36,26 @@ export default function ParticipantViewer() {
   return (
     <div>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <label>Subject id:</label>
+        <label style={{fontWeight:'600'}}>Subject id:</label>
         <input
+          placeholder="np. 2"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           style={{ width: 80 }}
+          aria-label="subject-id"
         />
-        <label>Params (e.g. TEMP:100,EDA):</label>
+        <label style={{fontWeight:'600'}}>Params (e.g. TEMP:100,EDA):</label>
         <input
+          placeholder="TEMP:100,EDA"
           value={params}
           onChange={(e) => setParams(e.target.value)}
           style={{ width: 200 }}
+          aria-label="params"
         />
         <button onClick={load}>Load</button>
+      </div>
+      <div style={{marginTop:8, fontSize:12, color:'#555'}}>
+        Jeśli nie widzisz pól powyżej, odśwież stronę (Ctrl+R) lub sprawdź konsolę przeglądarki (F12).
       </div>
 
       {loading && <p>Loading…</p>}
