@@ -128,3 +128,15 @@ http://127.0.0.1:5000/participant/2?allow_unpickle=1&params=TEMP:100,EDA
 To zwróci (jeśli istnieje) TEMP z 100 próbkami i EDA z domyślną liczbą próbek.
 
 Jeśli coś nie działa, napisz mi co widzisz w terminalu (błędy) lub wklej tu wynik z przeglądarki — pomogę dalej.
+
+### Frontend (React)
+
+W katalogu `frontend/` znajdziesz prosty projekt Vite+React. Jak uruchomić:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Domyślnie Vite proxyuje żądania do `http://127.0.0.1:5000`, więc najpierw uruchom backend (`python .\app.py`) a potem frontend. Otwórz `http://localhost:5173`.
