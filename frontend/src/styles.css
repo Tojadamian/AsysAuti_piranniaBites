@@ -7,3 +7,36 @@ input {
 button {
   padding: 6px 10px;
 }
+
+/* Ensure the app can center vertically and fill viewport */
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* small utility */
+.app-max {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* Focus style for MenuItem buttons (keyboard accessibility) */
+.menu-item:focus {
+  outline: 3px solid rgba(41, 180, 51, 0.95);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+
+/* Use focus-visible where supported to avoid outlines on mouse click */
+.menu-item:focus-visible {
+  outline: 3px solid rgba(41, 180, 51, 0.95);
+  outline-offset: 3px;
+  border-radius: 12px;
+}

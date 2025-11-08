@@ -140,3 +140,20 @@ npm run dev
 ```
 
 Domyślnie Vite proxyuje żądania do `http://127.0.0.1:5000`, więc najpierw uruchom backend (`python .\app.py`) a potem frontend. Otwórz `http://localhost:5173`.
+
+## AsysChat — prosty interfejs czatu
+
+Dodaliśmy prostą stronę czatu dostępną pod `#/chat`. UI wysyła żądania do endpointu backendu `/api/chat` (POST JSON: `{ message: string }`) i oczekuje odpowiedzi JSON `{ reply: string }`.
+
+Aby to działało lokalnie i bez ujawniania klucza w przeglądarce, ustaw klucz API (np. OpenAI) jako zmienną środowiskową na serwerze i zaimplementuj prosty proxy w `app.py` który korzysta z tej zmiennej. Przykładowo (koncept):
+
+1. Ustaw w PowerShell:
+
+```powershell
+$env:OPENAI_API_KEY = 'twój_klucz_tutaj'
+python .\app.py
+```
+
+2. Endpoint `/api/chat` powinien pobierać `request.json['message']`, wysłać zapytanie do API dostawcy używając `OPENAI_API_KEY` i zwrócić JSON `{ "reply": "..." }`.
+
+Uwaga: z powodów bezpieczeństwa nie zalecamy wysyłania klucza bezpośrednio z frontendu — lepiej trzymać go po stronie serwera.
