@@ -5,8 +5,7 @@ __pycache__/
 .Python
 env/
 venv/
-s2/
-s2_1/
+
 
 # Node
 node_modules/
@@ -29,3 +28,4 @@ __pycache__/
 .DS_Store
 S2/
 S3/
+S2_1/
