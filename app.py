@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, make_response
 import pandas as pd
 import pickle
 import os
@@ -7,6 +7,7 @@ import re
 import json
 import math
 from datetime import datetime
+import numpy as np
 
 # optional requests - jeśli nie ma, użyjemy urllib
 try:
@@ -348,7 +349,40 @@ def _safe_pickle_load(f, allow_unpickle=True):
     except Exception:
         f.seek(0)
         return pickle.load(f)
+    
+def make_json_safe(d):
+    for k, v in d.items():
+        if isinstance(v, dict):
+            make_json_safe(v)
+        elif isinstance(v, float) and (np.isnan(v) or np.isinf(v)):
+            d[k] = None
 
+def load_participant_features(subject_id):
+    csv_path = f"data/S{subject_id}.csv"
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"CSV for subject S{subject_id} not found")
+
+    df = pd.read_csv(csv_path, sep=',')  # tab-separated
+    subj_rows = df[df['subject'] == f'S{subject_id}']
+
+    if subj_rows.empty:
+        raise ValueError(f"No data for subject S{subject_id}")
+
+    row = subj_rows.iloc[0]
+
+    features = {
+        'mean_eda': float(row['mean_eda']),
+        'temp': float(row['temp']),
+        'emg': float(row['emg']) if row['emg'] else 0.0,
+        'acc_rms': float(row['acc_rms']),
+        'hr': float(row['hr']),
+        'hrv': float(row['hrv']),
+        'state': row['state']
+    }
+
+    print(f"[DEBUG] Features for subject S{subject_id}: {features}")  # <-- print here
+
+    return features
 
 def load_participant_data(subject_id):
     """Wczytuje dane uczestnika z obsługą kompatybilności pickle (Py2 -> Py3)."""
@@ -358,6 +392,7 @@ def load_participant_data(subject_id):
     allow_unpickle = True
     target_name = f'S{subject_id}'
     # 1) próba dedykowanego pliku
+
     pkl_path = os.path.join(data_dir, f'{target_name}.pkl')
     if os.path.exists(pkl_path):
         with open(pkl_path, 'rb') as f:
@@ -368,6 +403,14 @@ def load_participant_data(subject_id):
     if matches:
         with open(matches[0], 'rb') as f:
             return _safe_pickle_load(f, allow_unpickle=allow_unpickle)
+    
+    sv_path = os.path.join(data_dir, f'{target_name}.csv')
+    if os.path.exists(csv_path):
+        # Load CSV
+        df = pd.read_csv(csv_path)
+        # Save as .pkl for next time
+        df.to_pickle(pkl_path)
+        return df
 
     # 3) jeśli nie znaleziono w bieżącym katalogu danych, spróbuj przeszukać
     # pozostałe kandydackie katalogi (DATA_DIR_CANDIDATES), np. S2, S3.
@@ -1733,33 +1776,18 @@ def api_stress_state():
             return obj
 
     try:
-        data = load_participant_data(str(subject_id))
+    # Load precomputed features from CSV
+        data = load_participant_features(subject_id)  # your CSV loader
     except FileNotFoundError as e:
         return jsonify({'error': str(e)}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
-    raw_signals = data.get('signal', data)
+    # Use the loaded features directly
+    feats = data  # already dict with mean_eda, hr, hrv, temp, emg, acc_rms
 
-    # jeśli mamy range – przytnij wartości w raw_signals (rekurencyjnie po kanałach)
-    if sstart is not None or send is not None:
-        try:
-            if isinstance(raw_signals, dict):
-                clipped = {}
-                for loc, loc_val in raw_signals.items():
-                    if isinstance(loc_val, dict):
-                        clipped[loc] = {ch: _slice_seq(ch_val, sstart, send) for ch, ch_val in loc_val.items()}
-                    else:
-                        clipped[loc] = _slice_seq(loc_val, sstart, send)
-                raw_signals = clipped
-        except Exception:
-            pass
-
-    # oblicz metryki bieżące
-    feats = _extract_features_from_signals(raw_signals)
+    # Determine state
     state = classify(feats)
 
-    # policz prosty wynik (0-100) jako odsetek warunków stresu spełnionych
+    # Compute simple score (0-100) like before
     stress_conditions = [
         feats.get('mean_eda') is not None and feats['mean_eda'] > 0.761343,
         feats.get('hr') is not None and feats['hr'] > 66.870546,
@@ -1768,95 +1796,14 @@ def api_stress_state():
         feats.get('acc_rms') is not None and feats['acc_rms'] > 1.015106,
     ]
     known = [c for c in stress_conditions if c is True or c is False]
-    score = None
-    if known:
-        score = int(round(100 * (sum(1 for c in known if c) / len(known))))
+    score = int(round(100 * (sum(1 for c in known if c) / len(known)))) if known else None
 
-    # historia (opcjonalnie)
-    try:
-        windows = int(request.args.get('windows', 0))
-    except Exception:
-        windows = 0
-    try:
-        window_size = int(request.args.get('window_size', 300))
-    except Exception:
-        window_size = 300
-
+    # History and trend: can be kept empty or derived from multiple rows if you like
     history = []
-    if windows and isinstance(raw_signals, dict):
-        # znajdź długość na bazie pierwszego dostępnego kanału
-        def _first_len(d):
-            try:
-                import numpy as _np
-                import pandas as _pd
-            except Exception:
-                _np = None
-                _pd = None
-            for v in d.values():
-                if isinstance(v, dict):
-                    l = _first_len(v)
-                    if l:
-                        return l
-                else:
-                    try:
-                        if _pd is not None and (isinstance(v, _pd.Series) or isinstance(v, _pd.DataFrame)):
-                            return len(v)
-                        if isinstance(v, (list, tuple)):
-                            return len(v)
-                        if _np is not None and isinstance(v, _np.ndarray):
-                            return int(v.shape[0]) if hasattr(v, 'shape') else len(v)
-                    except Exception:
-                        pass
-            return None
-
-        total_len = _first_len(raw_signals)
-        if total_len and total_len > 0:
-            end_idx = total_len
-            start_idx = max(0, end_idx - windows * window_size)
-            # iteruj po oknach
-            idx = start_idx
-            while idx + window_size <= end_idx:
-                # przytnij i policz cechy
-                try:
-                    # zbuduj clipped wersję dla okna [idx:idx+window_size]
-                    clipped = {}
-                    for loc, lv in raw_signals.items():
-                        if isinstance(lv, dict):
-                            clipped[loc] = {ch: _slice_seq(chv, idx, idx + window_size) for ch, chv in lv.items()}
-                        else:
-                            clipped[loc] = _slice_seq(lv, idx, idx + window_size)
-                    f = _extract_features_from_signals(clipped)
-                    conds = [
-                        f.get('mean_eda') is not None and f['mean_eda'] > 0.761343,
-                        f.get('hr') is not None and f['hr'] > 66.870546,
-                        f.get('hrv') is not None and f['hrv'] < 325.906461,
-                        f.get('temp') is not None and f['temp'] < 31.217497,
-                        f.get('acc_rms') is not None and f['acc_rms'] > 1.015106,
-                    ]
-                    known2 = [c for c in conds if c is True or c is False]
-                    sc = None
-                    if known2:
-                        sc = int(round(100 * (sum(1 for c in known2 if c) / len(known2))))
-                except Exception:
-                    sc = None
-                history.append({'start': idx, 'end': idx + window_size, 'score': sc})
-                idx += window_size
-
-    # trend w oparciu o historię, jeśli dostępna
-    trend = None
-    if score is not None and len(history) >= 2:
-        prev_scores = [h.get('score') for h in history if h.get('score') is not None]
-        if len(prev_scores) >= 2:
-            diff = prev_scores[-1] - prev_scores[-2]
-            if diff > 5:
-                trend = 'wzrost'
-            elif diff < -5:
-                trend = 'spadek'
-            else:
-                trend = 'stabilny'
+    trend = 'stabilny'
 
     result = {
-        'subject': subj if isinstance(subj, str) and subj.upper().startswith('S') else f"S{subject_id}",
+        'subject': f"S{subject_id}",
         'features': feats,
         'state': state,
         'score': score,
@@ -1864,6 +1811,7 @@ def api_stress_state():
         'history': history,
         'generated_at': datetime.utcnow().isoformat() + 'Z'
     }
+    make_json_safe(result)
     return jsonify(result)
 
 

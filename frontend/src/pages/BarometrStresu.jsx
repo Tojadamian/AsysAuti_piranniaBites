@@ -14,66 +14,59 @@ const BarometrStresu = () => {
   const pollRef = useRef(null);
   const fullDataRef = useRef(null); // cache for the large full response
 
-  const fetchData = async () => {
-    try {
-      // guard przeciw nakładaniu się wywołań (chroni przed rekurencją/overlap)
-      if (window.__baro_running) {
-        console.warn(
-          "Barometr: fetchData skipped because previous run still in progress"
-        );
-        return;
-      }
-      window.__baro_running = (window.__baro_running || 0) + 1;
-      console.debug(
-        "Barometr: fetchData start, runCount=",
-        window.__baro_running
-      );
-      setLoading(true);
-
-      // Użyjemy serwerowego endpointu /api/stress_state, który sam oblicza
-      // features/score/trend i (opcjonalnie) historię okien.
-      const subject = "S2"; // domyślnie S2; można to uczynić dynamicznym
-      const windows = 20;
-      const window_size = 300;
-      const apiUrl = `http://127.0.0.1:5000/api/stress_state?subject=${encodeURIComponent(
-        subject
-      )}&windows=${windows}&window_size=${window_size}&allow_unpickle=1`;
-
-      const res = await fetch(apiUrl);
-      if (!res.ok)
-        throw new Error(`Błąd HTTP ${res.status} przy pobieraniu ${apiUrl}`);
-      const j = await res.json();
-
-      // Zapisujemy tylko minimalne dane w stanie komponentu
-      setData({ state: j.state, trend: j.trend, score: j.score });
-
-      // Historia serwera -> mapujemy na prostą listę punktów
-      if (Array.isArray(j.history) && j.history.length) {
-        const mapped = j.history
-          .filter((h) => h && typeof h.score === "number")
-          .slice(-100)
-          .map((h) => ({
-            score: Math.max(0, Math.min(100, Math.round(h.score))),
-          }));
-        setHistory(mapped.length ? mapped : []);
-      } else {
-        setHistory([]);
-      }
-
-      setError(null);
-    } catch (e) {
-      setError(e.message || String(e));
-    } finally {
-      setLoading(false);
-      try {
-        window.__baro_running = Math.max(0, (window.__baro_running || 1) - 1);
-      } catch (e) {}
-      console.debug(
-        "Barometr: fetchData end, runCount=",
-        window.__baro_running
-      );
+const fetchData = async () => {
+  try {
+    if (window.__baro_running) {
+      console.warn("Barometr: fetchData skipped because previous run still in progress");
+      return;
     }
-  };
+    window.__baro_running = (window.__baro_running || 0) + 1;
+    console.debug("Barometr: fetchData start, runCount=", window.__baro_running);
+    setLoading(true);
+
+    const subject = "S2";
+    const windows = 20;
+    const window_size = 300;
+    const apiUrl = `http://127.0.0.1:5000/api/stress_state?subject=${encodeURIComponent(subject)}&windows=${windows}&window_size=${window_size}&allow_unpickle=1`;
+
+    const res = await fetch(apiUrl);
+    if (!res.ok) throw new Error(`Błąd HTTP ${res.status} przy pobieraniu ${apiUrl}`);
+    const j = await res.json();
+
+    // --- DEBUG: inspect the full data ---
+    console.log("Full API response:", j);
+
+    // If j contains a 'data' or similar array of objects
+    if (Array.isArray(j.data) && j.data.length > 0) {
+      const firstRow = j.data[0];
+      console.log("Columns:", Object.keys(firstRow));
+      console.log("First 5 rows:");
+      j.data.slice(0, 5).forEach((row, i) => console.log(i + 1, row));
+    }
+
+    setData({ state: j.state, trend: j.trend, score: j.score });
+
+    if (Array.isArray(j.history) && j.history.length) {
+      const mapped = j.history
+        .filter((h) => h && typeof h.score === "number")
+        .slice(-100)
+        .map((h) => ({ score: Math.max(0, Math.min(100, Math.round(h.score))) }));
+      setHistory(mapped.length ? mapped : []);
+    } else {
+      setHistory([]);
+    }
+
+    setError(null);
+  } catch (e) {
+    setError(e.message || String(e));
+  } finally {
+    setLoading(false);
+    try {
+      window.__baro_running = Math.max(0, (window.__baro_running || 1) - 1);
+    } catch (e) {}
+    console.debug("Barometr: fetchData end, runCount=", window.__baro_running);
+  }
+};
 
   useEffect(() => {
     const instanceId = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;

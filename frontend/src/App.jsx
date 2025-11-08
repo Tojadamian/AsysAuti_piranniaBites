@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import MonitoringPanel from "./pages/MonitoringPanel";
 import Chat from "./pages/Chat";
 import BarometrStresu from "./pages/BarometrStresu";
+import Profile from "./pages/Profile";
 
 export default function App() {
   // Prosty, reaktywny router: preferujemy hash (#/path), ale jeśli go nie ma
@@ -74,6 +75,22 @@ export default function App() {
     return (
       <div style={{ fontFamily: "Arial, sans-serif", padding: 6 }}>
         <MonitoringPanel />
+      </div>
+    );
+  }
+
+  if (route.startsWith("/profile")) {
+    return (
+      <div style={{ fontFamily: "Arial, sans-serif", padding: 6 }}>
+        <Profile />
+      </div>
+    );
+  }
+
+  if (route.startsWith("/chat")) {
+    return (
+      <div style={{ fontFamily: "Arial, sans-serif", padding: 6 }}>
+        <Chat />
       </div>
     );
   }

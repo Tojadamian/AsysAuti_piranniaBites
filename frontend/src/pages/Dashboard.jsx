@@ -177,9 +177,10 @@ const Dashboard = () => {
             onClick={() => (window.location.hash = "/monitoring")}
             iconProps={{ fill: "#29b433", width: 28, height: 28 }}
           />
-          <MenuItem
-            IconComponent={IconUser}
+         <MenuItem
+            IconComponent={IconSettings}
             text="Profil"
+            onClick={() => (window.location.hash = "/profile")}
             iconProps={{ fill: "#29b433", width: 28, height: 28 }}
           />
           <MenuItem
