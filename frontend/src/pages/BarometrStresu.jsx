@@ -29,168 +29,42 @@ const BarometrStresu = () => {
         window.__baro_running
       );
       setLoading(true);
-      // PROTOTYP: pobierz surowe sygnały uczestnika z lokalnego API
-      // Używamy bezpośredniego endpointu wskazanego w README:
-      // http://127.0.0.1:5000/participant/2?allow_unpickle=1&params=...
-      const desiredParams = "EDA:500,HR:500,TEMP:500"; // próbkuj do 500 próbek (jeśli dostępne)
-      // Jeśli nie pobraliśmy jeszcze pełnych danych — pobierz z full=1 (duży plik)
-      let j = null;
-      if (!fullDataRef.current) {
-        const participantUrl = `http://127.0.0.1:5000/participant/2?allow_unpickle=1&params=${encodeURIComponent(
-          desiredParams
-        )}&full=1`;
-        const res = await fetch(participantUrl);
-        if (!res.ok)
-          throw new Error(
-            `Błąd HTTP ${res.status} przy pobieraniu ${participantUrl}`
-          );
-        j = await res.json();
-        // cache full response to avoid re-downloading ~50MB files
-        fullDataRef.current = j;
-      } else {
-        // fetch lightweight summary (no full arrays) to update score/state if available
-        const participantUrlSmall = `http://127.0.0.1:5000/participant/2?allow_unpickle=1&params=${encodeURIComponent(
-          desiredParams
-        )}`;
-        const res = await fetch(participantUrlSmall);
-        if (!res.ok)
-          throw new Error(
-            `Błąd HTTP ${res.status} przy pobieraniu ${participantUrlSmall}`
-          );
-        j = await res.json();
-      }
 
-      // j is the response (full on first run, summary afterwards)
-      // Aby uniknąć przechowywania bardzo dużego (i potencjalnie złożonego)
-      // obiektu w stanie komponentu (co może powodować ukryte recursje w devtools),
-      // zapisujemy tylko minimalne metadane. Surowe sygnały trzymamy tylko w
-      // lokalnej zmiennej i przetwarzamy do historii.
+      // Użyjemy serwerowego endpointu /api/stress_state, który sam oblicza
+      // features/score/trend i (opcjonalnie) historię okien.
+      const subject = "S2"; // domyślnie S2; można to uczynić dynamicznym
+      const windows = 20;
+      const window_size = 300;
+      const apiUrl = `http://127.0.0.1:5000/api/stress_state?subject=${encodeURIComponent(
+        subject
+      )}&windows=${windows}&window_size=${window_size}&allow_unpickle=1`;
+
+      const res = await fetch(apiUrl);
+      if (!res.ok)
+        throw new Error(`Błąd HTTP ${res.status} przy pobieraniu ${apiUrl}`);
+      const j = await res.json();
+
+      // Zapisujemy tylko minimalne dane w stanie komponentu
       setData({ state: j.state, trend: j.trend, score: j.score });
 
-      // Parsuj dostępne sygnały i wybierz pierwszy z listy preferowanych
-      const signals = j.available_signals || j.available_signals || {};
-
-      // Helper: próbuje wyciągnąć tablicę wartości z różnych struktur odpowiedzi
-      const extractArray = (val) => {
-        try {
-          if (!val && val !== 0) return null;
-          // jeśli wrapper full
-          if (val && typeof val === "object" && (val.data || val.full)) {
-            if (Array.isArray(val.data)) return val.data;
-            if (Array.isArray(val.full)) return val.full;
-            // jeśli full jest obiektem lokalizacji np. {chest: {TEMP: [...]}}
-            if (val.full && typeof val.full === "object") {
-              // spróbuj znaleźć najpierw listę w wartościach
-              for (const k of Object.keys(val.full)) {
-                const v = val.full[k];
-                if (Array.isArray(v)) return v;
-              }
-            }
-          }
-          if (Array.isArray(val)) return val;
-          // jeżeli to obiekt z localisation->channels
-          if (typeof val === "object") {
-            for (const k of Object.keys(val)) {
-              const v = val[k];
-              if (Array.isArray(v)) return v;
-            }
-          }
-          return null;
-        } catch (e) {
-          return null;
-        }
-      };
-
-      // preferowane kanały (kolejność próbkowania)
-      const preferred = ["eda", "hr", "temp", "acc", "acc_x", "acc_y", "acc_z"];
-      let chosen = null;
-
-      // przeszukaj hierarchical structure: locations -> channels
-      for (const locKey of Object.keys(signals || {})) {
-        const locVal = signals[locKey];
-        // jeżeli to obiekt zawierający 'full'
-        const candidateObj = locVal && locVal.full ? locVal.full : locVal;
-        if (candidateObj && typeof candidateObj === "object") {
-          for (const chName of Object.keys(candidateObj)) {
-            const arr = extractArray(candidateObj[chName]);
-            if (!arr) continue;
-            const lname = String(chName).toLowerCase();
-            // jeśli nazwa kanału w preferred -> wybierz
-            for (const p of preferred) {
-              if (lname.includes(p)) {
-                chosen = { name: chName, values: arr };
-                break;
-              }
-            }
-            if (chosen) break;
-          }
-        }
-        if (chosen) break;
-      }
-
-      // fallback: jeśli nie znaleziono w strukturze - spróbuj prostą detekcję
-      if (!chosen) {
-        // flatten and try to find any array
-        for (const locKey of Object.keys(signals || {})) {
-          const arr = extractArray(signals[locKey]);
-          if (arr) {
-            chosen = { name: locKey, values: arr };
-            break;
-          }
-        }
-      }
-
-      if (!chosen) {
-        setError(
-          "Nie znaleziono odpowiednich sygnałów w odpowiedzi uczestnika."
-        );
+      // Historia serwera -> mapujemy na prostą listę punktów
+      if (Array.isArray(j.history) && j.history.length) {
+        const mapped = j.history
+          .filter((h) => h && typeof h.score === "number")
+          .slice(-100)
+          .map((h) => ({
+            score: Math.max(0, Math.min(100, Math.round(h.score))),
+          }));
+        setHistory(mapped.length ? mapped : []);
+      } else {
         setHistory([]);
-        return;
       }
 
-      // Znormalizuj wartości wybranego kanału na 0..100 (min->0, max->100)
-      // Najpierw spróbuj spłaszczyć pojedyncze zagnieżdżone tablice jak [[5.25]] -> 5.25
-      const unwrap = (v) => {
-        try {
-          if (v == null) return null;
-          if (Array.isArray(v)) {
-            if (v.length === 0) return null;
-            const first = v[0];
-            if (Array.isArray(first)) return first.length ? first[0] : null;
-            return first;
-          }
-          return v;
-        } catch (e) {
-          return null;
-        }
-      };
-
-      const vals = chosen.values
-        .map((v) => unwrap(v))
-        .map((v) => (v == null ? null : Number(v)))
-        .filter((v) => !Number.isNaN(v));
-      if (!vals.length) {
-        setError("Wybrany kanał nie zawiera danych liczbowych.");
-        setHistory([]);
-        return;
-      }
-      const min = Math.min(...vals);
-      const max = Math.max(...vals);
-      const range = max - min || 1;
-
-      // downsample do maksymalnie 100 punktów dla wykresu
-      const maxPoints = 100;
-      const step = Math.max(1, Math.floor(vals.length / maxPoints));
-      const sampled = vals.filter((_, i) => i % step === 0).slice(-maxPoints);
-      const mapped = sampled.map((v) => Math.round(((v - min) / range) * 100));
-
-      setHistory(mapped.map((s) => ({ score: s })));
       setError(null);
     } catch (e) {
       setError(e.message || String(e));
     } finally {
       setLoading(false);
-      // release guard
       try {
         window.__baro_running = Math.max(0, (window.__baro_running || 1) - 1);
       } catch (e) {}
@@ -202,7 +76,6 @@ const BarometrStresu = () => {
   };
 
   useEffect(() => {
-    // Każda kopia komponentu otrzymuje unikalny id — to pomaga debugować nakładanie się
     const instanceId = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
     window.__baro_instances = (window.__baro_instances || 0) + 1;
     console.debug(
@@ -436,8 +309,7 @@ const BarometrStresu = () => {
               </div>
             )}
             <div style={{ fontSize: 11, color: "#555" }}>
-              Dane odświeżane co 5s • źródło:
-              http://127.0.0.1:5000/participant/2
+              Dane odświeżane co 5s • źródło: /api/stress_state
             </div>
           </div>
         </div>

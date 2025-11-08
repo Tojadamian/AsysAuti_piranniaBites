@@ -18,31 +18,10 @@ app = Flask(__name__)
 try:
     # opcjonalne CORS dla wywołań z frontendu (Vite/localhost inny port)
     from flask_cors import CORS  # type: ignore
-    # Rozszerzono zakres CORS aby umożliwić wybranie katalogu danych z ekranu logowania (endpoint /data_dir)
-    # oraz pobieranie uczestnika i stanu stresu bez błędów CORS.
-    CORS(app, resources={
-        r"/api/*": {"origins": "*"},
-        r"/data_dir*": {"origins": "*"},
-        r"/participant*": {"origins": "*"},
-        r"/participants*": {"origins": "*"},
-        r"/api/stress_state*": {"origins": "*"},
-    })
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
 except Exception:
     # jeśli flask_cors nie jest zainstalowany – API nadal działa lokalnie (przeglądarka może blokować zapytania)
     pass
-
-# Fallback: jeśli flask_cors nie jest zainstalowany, dodajemy prosty after_request,
-# który ustawia nagłówki CORS dla wszystkich odpowiedzi. Pozwala to na szybkie
-# prototypowanie bez instalowania dodatkowych zależności.
-@app.after_request
-def _add_cors_headers(response):
-    try:
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
-    except Exception:
-        pass
-    return response
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 # globalnie ustawiany katalog danych (można zmienić przez /data_dir?dir=)
