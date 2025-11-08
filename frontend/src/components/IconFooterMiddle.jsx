@@ -1,0 +1,22 @@
+import React from "react";
+
+const IconFooterMiddle = (props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    style={{
+      width: props.width || 28,
+      height: props.height || 28,
+      fill: props.fill || "#030303",
+      verticalAlign: "middle",
+      ...(props.style || {}),
+    }}
+    aria-hidden="true"
+    focusable="false"
+  >
+    <path d="M0 0h24v24H0z" fill="none" />
+    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+  </svg>
+);
+
+export default IconFooterMiddle;
