@@ -25,3 +25,5 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
+S2/
+S3/
