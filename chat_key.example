@@ -1,0 +1,8 @@
+# Example file for local OpenAI API key.
+# Do NOT commit real keys. Use environment variables or GitHub Secrets.
+
+# Create a real key in your OpenAI dashboard and set it as an env var.
+# Example usage (PowerShell):
+# $env:OPENAI_API_KEY = "sk-..."; python app.py
+
+OPENAI_API_KEY=your_openai_api_key_here
