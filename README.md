@@ -157,3 +157,26 @@ python .\app.py
 2. Endpoint `/api/chat` powinien pobierać `request.json['message']`, wysłać zapytanie do API dostawcy używając `OPENAI_API_KEY` i zwrócić JSON `{ "reply": "..." }`.
 
 Uwaga: z powodów bezpieczeństwa nie zalecamy wysyłania klucza bezpośrednio z frontendu — lepiej trzymać go po stronie serwera.
+
+## Secrets i klucze API
+
+- Plik `chat_key.txt` zawierał klucz API i został usunięty z historii repozytorium oraz z indeksu. Plik NIE jest już śledzony i nie powinien być dodawany do repozytorium.
+- Jeżeli używałeś klucza z tego pliku — traktuj go jako skompromitowany i natychmiast go unieważnij / zamień w panelu dostawcy (np. OpenAI).
+
+Zamiast trzymać klucza w pliku w repozytorium, ustaw go jako zmienną środowiskową po stronie serwera. Przykłady:
+
+PowerShell (Windows):
+
+```powershell
+$env:OPENAI_API_KEY = 'twój_nowy_klucz'
+python .\app.py
+```
+
+Bash / macOS / Linux:
+
+```bash
+export OPENAI_API_KEY='twój_nowy_klucz'
+python ./app.py
+```
+
+Jeśli naprawdę chcesz przechowywać klucz lokalnie (tylko dla siebie), umieść go w pliku `chat_key.txt` **poza repozytorium** i dodaj wpis `chat_key.txt` do `.gitignore` — repo już zawiera taką regułę. Nie umieszczaj tego pliku w publicznym repozytorium.
