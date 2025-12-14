@@ -97,6 +97,39 @@ Opis testów:
 
 ## Szybki start (dla laika)
 
+## Konfiguracja przez `.env`
+
+Możesz ustawić zmienne środowiskowe w pliku `.env` w katalogu projektu. Aplikacja automatycznie wczyta go (jeśli zainstalowano `python-dotenv`).
+
+Przykład: zobacz `.env.example`:
+
+```
+# Wczytaj w trybie deweloperskim z autoreloadem
+FLASK_APP=app.py
+FLASK_ENV=development
+
+# Zezwól na unpickling (tylko dla zaufanych plików!)
+ALLOW_UNPICKLE=1
+```
+
+Uruchom:
+
+```
+flask run
+```
+
+Jeśli nie chcesz używać `.env`, możesz te same zmienne ustawić w powłoce (zobacz przykłady powyżej).
+
+## Szybkie uruchomienie obu serwisów (backend + frontend)
+
+W katalogu projektu:
+
+```
+make dev-all
+```
+
+To uruchomi backend Flask i Vite frontend (z proxy do backendu) w jednej komendzie. Zatrzymanie frontendu zakończy także backend.
+
 Jeśli nie jesteś programistą i chcesz tylko szybko zobaczyć co robi API, wykonaj te kroki (PowerShell):
 
 1. Otwórz folder projektu w Eksploratorze i uruchom PowerShell w tym folderze.
